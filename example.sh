@@ -5,14 +5,12 @@
 # launchd-with-networkchange
 
 # proxifier
-proxifier_quit()
-{
+proxifier_quit() {
     ps -ef | grep Proxifier | awk '{print $2}' | xargs kill
 }
 
 # WORK MOD
-at_work_mod()
-{
+at_work_mod() {
     # empty dns servers when connect office wifi
     /usr/sbin/networksetup -setdnsservers Wi-Fi Empty
 
@@ -31,12 +29,21 @@ EOD
 }
 
 # HOME MOD
-at_home_mod()
-{
-	# set my pac url so that i can across the GFW at home.
+at_home_mod() {
+    # set my pac url so that i can across the GFW at home.
     # /usr/sbin/networksetup -setautoproxyurl Wi-Fi http://example.pac
 
-	# run or quit apps
+    defaults write com.microsoft.edgemac DnsCacheEnabled -bool false
+    defaults write com.arc.browser DnsCacheEnabled -bool false
+
+    # os dns 快取清除
+    dscacheutil -flushcache
+    killall -HUP mDNSResponder
+
+    defaults write com.microsoft.edgemac DnsCacheEnabled -bool true
+    defaults write com.arc.browser DnsCacheEnabled -bool true
+
+    # run or quit apps
     osascript <<EOD
     tell application "RTX"
         quit
@@ -49,12 +56,12 @@ NAME="$0:t:r"
 PPID_NAME=$(ps -cp "$PPID" | fgrep -v 'PID TTY')
 
 case "$PPID_NAME" in
-    *launchd*)
-        # delay 15s for Mac's first wakes up.
-        sleep 15
+*launchd*)
+    # delay 15s for Mac's first wakes up.
+    sleep 15
     ;;
-    *)              
-        # These settings are used when the script is not called via `launchd`
+*)
+    # These settings are used when the script is not called via `launchd`
     ;;
 esac
 
@@ -67,21 +74,22 @@ SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/R
 # whether at home or working by detecting SSID.
 # Please change the code according to your contexts,
 # especially the SSID name.
-if [[ $SSID == 'Office-WiF-SSID' ]];then
-    at_work_mod
+if echo "$SSID" | grep -q 'docomo'; then
 
-    SHOW_MOD="Work Mod"
+    at_home_mod
+    SHOW_MOD="Home Mod"
 
 else
-    at_home_mod
 
-    SHOW_MOD="Home Mod"
+    at_work_mod
+    SHOW_MOD="Work Mod"
 fi
+echo $SHOW_MOD
 
 # notification
-if [[ $SHOW_MOD != '' ]];then
+if [[ $SHOW_MOD != '' ]]; then
 
-osascript <<EOD
+    osascript <<EOD
     display notification "Run [ $SHOW_MOD ] with success!" with title "Launchd With Networkchange"
 EOD
 
